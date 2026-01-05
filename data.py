@@ -8,7 +8,7 @@ from vars import FILE, TRANSLATIONS
 def get_db_json():
     if not FILE.exists():
         print(f"❌ Error: Doesn't appear '{FILE}'")
-        return
+        return []
 
     print("📖 Reading File...")
 
@@ -27,7 +27,7 @@ def get_db_json():
 
     except Exception as e:
         print(f"❌ Error reading the Excel: {e}")
-        return
+        return []
     
 
     json_output = []
