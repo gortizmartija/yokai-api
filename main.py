@@ -1,91 +1,80 @@
-# https://auth0.com/blog/developing-restful-apis-with-python-and-flask/
-# https://auth0.com/blog/sqlalchemy-orm-tutorial-for-python-developers/
-from flask import Flask, jsonify, request
-import json
+from flask import Flask, jsonify
+from data import get_db_json
+from vars import TRANSLATIONS
 
-with open('db.json', encoding='utf-8') as f:
-    characters = json.load(f)
-    print(characters)
+
+yokais = get_db_json()
 
 app = Flask(__name__)
+app.json.sort_keys = False
+app.json.ensure_ascii = False
 
 
-# Función auxiliar para procesar los datos según el idioma
-def formatear_personajes(idioma):
-    personajes_procesados = []
+def filter_yokais(lang):
+    list_yokais = []
 
-    for item in characters:
-        # Creamos una copia del personaje para no modificar la base de datos original
-        nuevo_personaje = item.copy()
+    for item in yokais:
+        # Create a copy
+        new_yokai = item.copy()
 
-        # Extraemos el objeto 'translations' y lo eliminamos del nuevo personaje
-        # Si no existe 'translations', usamos un diccionario vacío
-        traducciones = nuevo_personaje.pop('translations', {})
+        translations = new_yokai.pop('translations', {})
 
-        # 2. SELECCIÓN DE IDIOMA:
-        # Buscamos el idioma pedido. Si no existe, usamos 'es' por defecto (fallback)
-        datos_texto = traducciones.get(idioma, traducciones.get('es', {}))
+        data_lang = translations.get(lang, translations.get('en', {}))
 
-        # Mezclamos (merge) los datos de texto (nombre, desc) en el objeto principal
-        nuevo_personaje.update(datos_texto)
+        # Update de yokai with the data of the lang
+        new_yokai.update(data_lang)
 
-        personajes_procesados.append(nuevo_personaje)
+        list_yokais.append(new_yokai)
+    
 
-    return personajes_procesados
+    return list_yokais
 
 
-# RUTA DINÁMICA
-# <lang> capturará "es" o "en" automáticamente
-@app.route('/<lang>/characters')
-def get_characters(lang):
-    # Validamos que el idioma sea uno de los permitidos
-    if lang not in ['es', 'en']:
+
+@app.route('/<lang>/yokais')
+def get_yokais(lang):
+    # Validate the langs
+    if lang not in TRANSLATIONS:
         return jsonify({
-            "error": "Idioma no soportado. Usa /es/characters o /en/characters",
-            "rutas_disponibles": ["/es/characters", "/en/characters"]
+            "error": f"This lang is not supported: {lang}",
+            "avaliable_langs": TRANSLATIONS
         }), 400
 
-    # Llamamos a nuestra función auxiliar
-    resultado = formatear_personajes(lang)
+    result = filter_yokais(lang)
 
-    # Flask con jsonify ya se encarga de las cabeceras Content-Type: application/json
-    # y de asegurar que la respuesta salga en UTF-8
-    app.config['JSON_AS_ASCII'] = False  # Importante: permite tildes en la respuesta cruda
-    return jsonify(resultado)
+    app.config['JSON_AS_ASCII'] = False
+    return jsonify(result)
 
 
-@app.route('/<lang>/characters/<int:id_character>')
-def get_character_by_id(lang, id_character):
-    # 1. Validar idioma
-    if lang not in ['es', 'en']:
-        return jsonify({"error": "Idioma no soportado"}), 400
+@app.route('/<lang>/yokais/<int:id_yokai>')
+def get_character_by_id(lang, id_yokai):
+    if lang not in TRANSLATIONS:
+        return jsonify({"error": f"This lang is not supported: {lang}"}), 400
 
-    # 2. Buscar personaje en la base de datos (raw)
-    # next() busca el primer elemento que coincida, o devuelve None
-    personaje_encontrado = next((p for p in characters if p['id'] == id_character), None)
+    yokai_found = next((p for p in yokais if p['id'] == id_yokai), None)
 
-    if personaje_encontrado:
-        # 3. Procesar idioma (misma lógica que arriba pero para uno solo)
-        resultado = personaje_encontrado.copy()
-        traducciones = resultado.pop('translations', {})
-        datos_texto = traducciones.get(lang, traducciones.get('es', {}))
-        resultado.update(datos_texto)
+    if yokai_found:
+        result = yokai_found.copy()
+        translations = result.pop('translations', {})
+        data_lang = translations.get(lang, translations.get('en', {}))
+        result.update(data_lang)
 
         app.config['JSON_AS_ASCII'] = False
-        return jsonify(resultado)
+        return jsonify(result)
     else:
-        return jsonify({"error": "Personaje no encontrado"}), 404
+        return jsonify({"error": "Yokai not found."}), 404
 
 
-# Ruta raíz para no dar error 404 si entran a la home
 @app.route('/')
 def home():
     return jsonify({
-        "mensaje": "Bienvenido a la API de Personajes Retro",
-        "rutas": {
-            "personajes": "/es/characters",
-            "por_id": "/en/characters/1"
-        }
+        "message": "Welcome to the Yokais Public web API",
+        "num_yokais" : len(yokais),
+        "routes": {
+            "yokais": "/en/yokais",
+            "by_id": "/en/yokais/1"
+        },
+        "langs": TRANSLATIONS,
     })
 
 

@@ -1,15 +1,12 @@
 # coding=utf-8
 
 import pandas as pd
-import json
-import os
-
-FILE = 'data.ods'
-TRANSLATIONS = ['es', 'en']
+from vars import FILE, TRANSLATIONS
 
 
-def create_db_json():
-    if not os.path.exists(FILE):
+
+def get_db_json():
+    if not FILE.exists():
         print(f"❌ Error: Doesn't appear '{FILE}'")
         return
 
@@ -29,48 +26,42 @@ def create_db_json():
                 print(f"   ⚠️ Warning: No tab '{lang}' in the file.")
 
     except Exception as e:
-        print(f"❌ Error crítico leyendo Excel: {e}")
+        print(f"❌ Error reading the Excel: {e}")
         return
+    
 
     json_output = []
 
-    print("🔄 Procesando personajes...")
+    print("🔄 Generating yokais...")
     for index, row in df_main.iterrows():
-        personaje_id = row['id']
+        yokai_id = row['id']
 
-        personaje = {
-            "id": int(personaje_id),
-            "slug": row['slug'],
-            "imagen": row['imagen'],
-            "activo": bool(row['activo']),
-            # Agrupamos las stats aquí mismo si están en la hoja main
-            "stats": {
-                "fuerza": int(row.get('fuerza', 0)),
-                "velocidad": int(row.get('velocidad', 0)),
-                "inteligencia": int(row.get('inteligencia', 0))
-            },
+        yokai = {
+            "id": int(yokai_id),
+            "west_name": row['west_name'],
+            "jp_name": row['jp_name'],
+            "kanji_name": row['kanji_name'],
+            "portrait_path": row['portrait_path'],
+            "thumbnails_path": row['thumbnails_path'],
+            "webp_path": row['webp_path'],
             "translations": {}
         }
 
-        # 4. Inyectamos los idiomas dinámicamente
-        for lang, df_lang in dfs_idiomas.items():
-            if personaje_id in df_lang.index:
-                # Extraemos los datos de esa fila como diccionario
-                datos_texto = df_lang.loc[personaje_id].to_dict()
-                personaje['translations'][lang] = datos_texto
+        for lang, df_lang in dfs_translations.items():
+            if yokai_id in df_lang.index:
+                data_text = df_lang.loc[yokai_id].to_dict()
+                yokai['translations'][lang] = data_text
             else:
-                # Si falta la traducción para este ID, ponemos un objeto vacío o un aviso
-                print(f"   ⚠️ Falta traducción {lang} para ID {personaje_id}")
-                personaje['translations'][lang] = {}
+                print(f"   ⚠️ Missing {lang} translation for the yokai with ID {yokai_id}")
+                yokai['translations'][lang] = {}
 
-        json_output.append(personaje)
+        json_output.append(yokai)
 
-    # 5. Guardar JSON
-    with open('db.json', 'w', encoding='utf-8') as f:
-        json.dump(json_output, f, indent=2, ensure_ascii=False)
 
-    print(f"🎉 ¡Hecho! 'db.json' generado con {len(json_output)} personajes y {len(IDIOMAS_DISPONIBLES)} idiomas.")
+    print(f"🎉 Done! data generated in json, {len(json_output)} yokais and {len(TRANSLATIONS)} langs.")
+    return json_output
+
 
 
 if __name__ == '__main__':
-    create_db_json()
+    get_db_json()
